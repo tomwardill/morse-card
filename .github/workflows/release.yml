@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build firmware
+        run: pio run -e pico
+
+      - name: Rename artifacts
+        run: |
+          mkdir -p dist
+          cp .pio/build/pico/firmware.uf2 dist/morse-code-firmware-${{ github.ref_name }}.uf2
+          cp .pio/build/pico/firmware.bin dist/morse-code-firmware-${{ github.ref_name }}.bin
+          cp .pio/build/pico/firmware.elf dist/morse-code-firmware-${{ github.ref_name }}.elf
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
