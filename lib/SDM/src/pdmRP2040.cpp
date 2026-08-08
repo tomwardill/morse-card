@@ -1,6 +1,6 @@
 #include "pdmAudio.h"
 
-#if defined ARDUINO_ARCH_MBED_RP2040 || defined ARDUINO_ARCH_RP2040 
+#if defined ARDUINO_ARCH_MBED_RP2040 || defined ARDUINO_ARCH_RP2040
 
 #include "pdm.pio.h"
 #include "pico/multicore.h"
@@ -26,6 +26,15 @@ protected:
         };
         return stringIproductDescriptor;
     }
+
+    virtual const uint8_t *string_imanufacturer_desc() override {
+        static const uint8_t stringImanufacturerDescriptor[] = {
+            0x0c,               // bLength
+            STRING_DESCRIPTOR,  // bDescriptorType
+            'M', 0, '9', 0, 'T', 0, 'W', 0, 'M', 0 // bString iManufacturer - "M9TWM"
+        };
+        return stringImanufacturerDescriptor;
+    }
 };
 #endif
 
@@ -33,12 +42,12 @@ protected:
 void core1_worker() {
  PIO pio = pio1;
  uint sm;
- 
+
  // wait untill pin number is received
- while(!multicore_fifo_rvalid()){     
+ while(!multicore_fifo_rvalid()){
  }
  uint32_t pin = multicore_fifo_pop_blocking();
- 
+
  // Set the appropriate clock
  set_sys_clock_khz(115200, false);
  uint offset = pio_add_program(pio, &pdm_program);
@@ -55,8 +64,8 @@ void core1_worker() {
  sm_config_set_out_shift(&c, true, true, 32);
  pio_sm_init(pio, sm, offset, &c);
  pio_sm_set_enabled(pio, sm, true);
-    
-    
+
+
  uint32_t a = 0;
  int16_t pinput = 0;
  SDM sdm;
@@ -82,7 +91,7 @@ void core1_worker() {
       pio->txf[sm] = a;
       pio->txf[sm] = a;
     }
-    
+
     // if other core sends value
     if (multicore_fifo_rvalid()) {
       uint32_t rec = multicore_fifo_pop_blocking();
@@ -108,26 +117,26 @@ pdmAudio::pdmAudio() {
 }
 
 void pdmAudio::begin(uint32_t pin) {
-    
+
      float delta = (2.0*PI/6000.0);
     for (int i=0;i<6000;i++){
         sina[i]=(int16_t)(sin(i*delta)*32767);
     }
   //delay(1000);
 	// less noisy power supply
-  #ifdef ARDUINO_ARCH_MBED_RP2040 
+  #ifdef ARDUINO_ARCH_MBED_RP2040
   _gpio_init(23);
-  #elif  defined ARDUINO_ARCH_RP2040 
+  #elif  defined ARDUINO_ARCH_RP2040
   gpio_init(23);
   #endif
-  
+
   gpio_set_dir(23, GPIO_OUT);
   gpio_put(23, 1);
   multicore_launch_core1(core1_worker);
   multicore_fifo_push_blocking((uint32_t)(pin));
-  
+
   //delay(1000);
-  
+
 }
 
 void pdmAudio::USB_UAC() {
@@ -172,7 +181,7 @@ void pdmAudio::USBtransfer(int16_t left,int16_t right) {
   pcBuffer16[pcCounter]=left;
   pcCounter++;
   nBytes+=2;
-  
+
   pcBuffer16[pcCounter]=right;
   pcCounter++;
   nBytes+=2;
