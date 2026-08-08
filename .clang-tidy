@@ -1,0 +1,93 @@
+# Static analysis for morse-code-firmware.
+#
+# Run via `pio check` (see check_tool/check_flags in platformio.ini), which
+# supplies the RP2040/mbed include paths -- clang-tidy cannot resolve
+# <Arduino.h> on its own.
+#
+# NOTE: `pio check` uses PlatformIO's own tool-clangtidy (currently LLVM 15),
+# NOT the system clang-tidy. So this file is constrained to checks that exist
+# in 15, and analysis results will not match a bare `clang-tidy` invocation on
+# a machine with a newer LLVM. Formatting is pinned separately (clang-format
+# 21.1.8, via .pre-commit-config.yaml) -- the two tools are versioned
+# independently on purpose.
+#
+# The disabled checks below are all deliberate: each one is either actively
+# wrong for firmware or noisy enough to drown the findings that matter.
+
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  readability-*,
+  modernize-*,
+  cppcoreguidelines-macro-usage,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-pro-type-member-init,
+  -bugprone-easily-swappable-parameters,
+  -modernize-avoid-c-arrays,
+  -modernize-use-nodiscard,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-identifier-naming
+
+# Why each exclusion:
+#
+# bugprone-easily-swappable-parameters
+#   Fires on any two same-typed adjacent params. USBtransfer(int16_t left,
+#   int16_t right) is not a defect.
+#
+# modernize-avoid-c-arrays
+#   Wants std::array. C arrays are the correct choice for fixed DMA/PIO
+#   buffers on a 264 KB part.
+#
+# modernize-use-nodiscard / modernize-use-trailing-return-type
+#   Pure churn; neither catches a bug.
+#
+# readability-identifier-length
+#   Flags loop counters like `i`.
+#
+# readability-magic-numbers
+#   Would flag every pin number and every RgbColor(128, 0, 0). Turning this
+#   on before the constants are named produces hundreds of findings and
+#   trains you to ignore the output. Worth revisiting once the #defines in
+#   main.cpp are constexpr.
+#
+# readability-identifier-naming
+#   Configured below but OFF: main.cpp currently mixes snake_case
+#   (rgb_led, current_iambic_state) with camelCase (toneStartTime). Enabling
+#   this today flags most of the file and blocks every commit. Drop the
+#   leading `-` once the identifiers have been made consistent.
+
+CheckOptions:
+  # Naming scheme this project is converging on. Inert until
+  # readability-identifier-naming is enabled above.
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+
+  # Always brace, even single statements -- cheap insurance in interrupt and
+  # state-machine code.
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: '0'
+
+# Findings are reported as warnings; `pio check --fail-on-defect` decides what
+# actually blocks a push. Leave this empty so severity lives in one place.
+WarningsAsErrors: ''
+
+# Never emit findings from framework or vendored headers.
+HeaderFilterRegex: '^(src|include)/'

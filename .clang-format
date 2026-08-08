@@ -1,0 +1,38 @@
+# Formatting for morse-code-firmware.
+#
+# Based on LLVM, which is what src/main.cpp is already formatted as. The
+# settings below are LLVM's own defaults, restated explicitly: clang-format
+# changes its defaults between major releases, and an unpinned default would
+# silently reformat the tree on a toolchain bump.
+#
+# Only src/ is formatted -- lib/SDM is vendored third-party code and is
+# excluded in .pre-commit-config.yaml so patches stay diffable against
+# upstream.
+
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++17
+
+ColumnLimit: 80
+IndentWidth: 2
+UseTab: Never
+
+# `case` sits at the same level as `switch`, matching the existing code.
+IndentCaseLabels: false
+
+# `int16_t *left`, matching the vendored SDM sources this project sits next to.
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# Never silently join a multi-line body onto one line -- on an MCU these are
+# the bodies you set breakpoints in.
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+# Sort within each blank-line-separated block, but never move an include
+# across a blank line: Arduino headers are order-sensitive and the blank
+# lines in main.cpp are load-bearing.
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve

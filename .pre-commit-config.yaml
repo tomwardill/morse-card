@@ -1,0 +1,48 @@
+# Install with:  pre-commit install && pre-commit install --hook-type pre-push
+#
+# Two speeds, deliberately:
+#   pre-commit  formatting + file hygiene. Milliseconds, runs on every commit.
+#   pre-push    clang-tidy via `pio check`. Needs to resolve the whole mbed
+#               toolchain, so it is far too slow to sit in front of every
+#               commit, but you want it in front of every push.
+
+# lib/SDM is vendored third-party code -- reformatting it would destroy the
+# diff against upstream and bury the local patches. .pio is build output.
+exclude: '^(lib/|\.pio/)'
+
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    # Pinned to match the clang-format on this machine. clang-format output
+    # is not stable across major versions; an unpinned hook means CI and
+    # your editor disagree about what "formatted" means.
+    rev: v21.1.8
+    hooks:
+      - id: clang-format
+        files: '^(src|include)/.*\.(c|cpp|h|hpp)$'
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-added-large-files
+        # .uf2/.elf artifacts live under .pio and are excluded above, but this
+        # catches a firmware image dragged in from somewhere else.
+        args: [--maxkb=512]
+
+  - repo: local
+    hooks:
+      - id: pio-check
+        name: clang-tidy (via pio check)
+        # `pio check` supplies the RP2040 + mbed include paths that clang-tidy
+        # needs to parse <Arduino.h>. Running clang-tidy directly here would
+        # produce nothing but "file not found" errors.
+        entry: pio check --fail-on-defect=medium --fail-on-defect=high
+        language: system
+        pass_filenames: false
+        files: '^(src|include)/.*\.(c|cpp|h|hpp)$'
+        stages: [pre-push]

@@ -5,6 +5,30 @@
 #include "pdm.pio.h"
 #include "pico/multicore.h"
 
+#ifdef ARDUINO_ARCH_MBED_RP2040
+#include "usb_phy_api.h"
+
+// USBAudio with a custom iProduct string (base class always reports "Mbed Audio")
+class MorseUSBAudio : public USBAudio {
+public:
+    MorseUSBAudio(uint32_t frequency_rx, uint8_t channel_count_rx, uint32_t frequency_tx, uint8_t channel_count_tx)
+        : USBAudio(get_usb_phy(), frequency_rx, channel_count_rx, frequency_tx, channel_count_tx, 10, 0x7bb8, 0x1111, 0x0100)
+    {
+        connect();
+    }
+
+protected:
+    virtual const uint8_t *string_iproduct_desc() override {
+        static const uint8_t stringIproductDescriptor[] = {
+            0x16,               // bLength
+            STRING_DESCRIPTOR,  // bDescriptorType
+            'M', 0, 'o', 0, 'r', 0, 's', 0, 'e', 0, ' ', 0, 'C', 0, 'a', 0, 'r', 0, 'd', 0 // bString iProduct - "Morse Card"
+        };
+        return stringIproductDescriptor;
+    }
+};
+#endif
+
 
 void core1_worker() {
  PIO pio = pio1;
@@ -78,7 +102,9 @@ void core1_worker() {
 
 
 pdmAudio::pdmAudio() {
- 
+ #ifdef ARDUINO_ARCH_MBED_RP2040
+ audio = nullptr;
+ #endif
 }
 
 void pdmAudio::begin(uint32_t pin) {
@@ -106,12 +132,13 @@ void pdmAudio::begin(uint32_t pin) {
 
 void pdmAudio::USB_UAC() {
  #ifdef ARDUINO_ARCH_MBED_RP2040
- audio= new USBAudio(true, 48000, 2, 48000, 2);
+ audio= new MorseUSBAudio(48000, 2, 48000, 2);
  #endif
 }
 
 void pdmAudio::USBwrite() {
     #ifdef ARDUINO_ARCH_MBED_RP2040
+     if (audio == nullptr) return;
      if (audio->read(myRawBuffer, sizeof(myRawBuffer))) {
       int16_t *lessRawBuffer = (int16_t *)myRawBuffer;
       for (int i = 0; i < 24; i++) {
@@ -135,6 +162,7 @@ void pdmAudio::write(int16_t mono) {
 
 void pdmAudio::USBtransfer(int16_t left,int16_t right) {
   #ifdef ARDUINO_ARCH_MBED_RP2040
+  if (audio == nullptr) return;
   if(nBytes>95){
     uint8_t *pcBuffer =  (uint8_t *)pcBuffer16;
     audio->write(pcBuffer, 96);
