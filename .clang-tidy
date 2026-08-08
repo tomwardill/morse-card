@@ -59,6 +59,14 @@ Checks: >
 #   leading `-` once the identifiers have been made consistent.
 
 CheckOptions:
+  # Raised from the default 25. doIambic() scores high because it handles
+  # each iambic state in its own explicit branch rather than collapsing them
+  # into shared helpers -- that nesting is a deliberate readability choice for
+  # a state machine whose timing has to be reasoned about by hand. 40 leaves
+  # headroom for that function while still catching genuine runaway growth.
+  - key: readability-function-cognitive-complexity.Threshold
+    value: '40'
+
   # Naming scheme this project is converging on. Inert until
   # readability-identifier-naming is enabled above.
   - key: readability-identifier-naming.ClassCase
