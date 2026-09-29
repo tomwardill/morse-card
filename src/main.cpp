@@ -329,6 +329,7 @@ void doIambic(bool isIambicB) {
     finishedCurrentState = playDah();
     break;
   default:
+    pdm.USBtransfer(0, 0);
     break;
   }
 }
